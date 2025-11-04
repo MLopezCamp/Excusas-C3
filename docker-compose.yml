@@ -1,0 +1,55 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: excusas-c3:latest
+    container_name: excusas_web
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    environment:
+      # Ajusta estas variables según tu app (puedes usar un .env)
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=excusas_db
+      - DB_USERNAME=excusas_user
+      - DB_PASSWORD=excusas_pass
+      - DROPBOX_TOKEN=${DROPBOX_TOKEN}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    volumes:
+      - ./uploads:/var/www/html/uploads   # si tu app guarda archivos localmente
+      - ./php:/var/www/html/php:ro       # si tus APIs están en php/ (opcional)
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: excusas_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: excusas_db
+      MYSQL_USER: excusas_user
+      MYSQL_PASSWORD: excusas_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3307:3306" # opcional: expone MySQL al host en 3307
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: excusas_phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  db_data:
