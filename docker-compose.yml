@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   web:
     build:
@@ -8,21 +10,15 @@ services:
     depends_on:
       - db
     ports:
-      - "8080:80"
+      - "8090:80"  # Jenkins usa 8080, así que usamos 8090 para la app
     environment:
-      # Ajusta estas variables según tu app (puedes usar un .env)
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=excusas_db
-      - DB_USERNAME=excusas_user
-      - DB_PASSWORD=excusas_pass
-      - DROPBOX_TOKEN=${DROPBOX_TOKEN}
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: excusas_db
+      DB_USERNAME: excusas_user
+      DB_PASSWORD: excusas_pass
     volumes:
-      - ./uploads:/var/www/html/uploads   # si tu app guarda archivos localmente
-      - ./php:/var/www/html/php:ro       # si tus APIs están en php/ (opcional)
+      - .:/var/www/html
     restart: unless-stopped
 
   db:
@@ -35,20 +31,7 @@ services:
       MYSQL_PASSWORD: excusas_pass
     volumes:
       - db_data:/var/lib/mysql
-    ports:
-      - "3307:3306" # opcional: expone MySQL al host en 3307
-    restart: unless-stopped
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: excusas_phpmyadmin
-    environment:
-      PMA_HOST: db
-      PMA_PORT: 3306
-    ports:
-      - "8081:80"
-    depends_on:
-      - db
+    # 🔸 No exponemos el puerto: la app se conecta internamente
     restart: unless-stopped
 
 volumes:
