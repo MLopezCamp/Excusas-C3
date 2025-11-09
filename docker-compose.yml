@@ -10,13 +10,13 @@ services:
     depends_on:
       - db
     ports:
-      - "8090:80"  # Jenkins usa 8080, así que usamos 8090 para la app
+      - "8090:80"  # Jenkins usa 8080
     environment:
       DB_HOST: db
       DB_PORT: 3306
-      DB_DATABASE: excusas_db
-      DB_USERNAME: excusas_user
-      DB_PASSWORD: excusas_pass
+      DB_DATABASE: v_exc_asig_mat_est
+      DB_USERNAME: root
+      DB_PASSWORD: root_pass
     volumes:
       - .:/var/www/html
     restart: unless-stopped
@@ -26,12 +26,27 @@ services:
     container_name: excusas_db
     environment:
       MYSQL_ROOT_PASSWORD: root_pass
-      MYSQL_DATABASE: excusas_db
-      MYSQL_USER: excusas_user
-      MYSQL_PASSWORD: excusas_pass
+      MYSQL_DATABASE: v_exc_asig_mat_est
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root_pass
     volumes:
       - db_data:/var/lib/mysql
-    # 🔸 No exponemos el puerto: la app se conecta internamente
+      # Se importa automáticamente al crear el contenedor
+      - ./v_exc_asig_mat_est.sql:/docker-entrypoint-initdb.d/v_exc_asig_mat_est.sql:ro
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: excusas_phpmyadmin
+    depends_on:
+      - db
+    ports:
+      - "8091:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root_pass
+      UPLOAD_LIMIT: 100M
     restart: unless-stopped
 
 volumes:
