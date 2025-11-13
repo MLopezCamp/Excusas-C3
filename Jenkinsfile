@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred')  // ID de credenciales en Jenkins
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred') 
         DOCKERHUB_USER = "${DOCKERHUB_CREDENTIALS_USR}"
         DOCKERHUB_PASS = "${DOCKERHUB_CREDENTIALS_PSW}"
-        IMAGE_NAME = "tuusuario/excusas-c3"  // Cambia por tu repo DockerHub
-        BRANCH = "main" // o la rama que uses
+        IMAGE_NAME = "mlopezcamp/excusas-c3" 
+        BRANCH = "master" 
     }
 
     stages {
