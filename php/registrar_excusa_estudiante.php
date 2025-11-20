@@ -14,6 +14,7 @@
 // Importar clases de PHPMailer para envío de correos
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+require_once __DIR__ . "/../config/Database.php";
 
 // Configuración de reporte de errores para desarrollo
 ini_set('display_errors', 1);
