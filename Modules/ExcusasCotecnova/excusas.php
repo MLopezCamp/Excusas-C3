@@ -63,7 +63,8 @@ if ($mostrarValidacion) {
                 AND exc.id_curs_asig_es = cae.id_curs_asig_es
             INNER JOIN tiposexcusas AS tex 
                 ON exc.tipo_excu = tex.id_tipo_excu
-            WHERE exc.estado_excu = 3;       -- Solo excusas pendientes (estado 3)
+            WHERE exc.estado_excu = 3       -- Solo excusas pendientes (estado 3)
+            ORDER BY exc.id_excusa ASC;
         ");
 
         // Ejecutar consulta y obtener excusas pendientes
