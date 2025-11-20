@@ -3,164 +3,205 @@
  * REGISTRO DE EXCUSAS DE ESTUDIANTES
  * 
  * Este archivo maneja el registro de excusas enviadas por los estudiantes.
- * Sube el soporte a Dropbox, guarda la información en la BD
- * y notifica por correo al estudiante o director según corresponda.
+ * Funcionalidades:
+ * - Validación de sesión de estudiante
+ * - Inserción de excusa en la base de datos
+ * - Envío de notificación por correo al director de unidad
+ * - Manejo de archivos de soporte (enlaces a Dropbox)
+ * - Respuestas en formato JSON para comunicación con el frontend
  */
 
+// Importar clases de PHPMailer para envío de correos
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-require '../vendor/autoload.php'; // PHPMailer y Kunnu Dropbox SDK
 
-// ✅ Configuración de errores — oculta en producción
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(0);
+// Configuración de reporte de errores para desarrollo
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-// ✅ Cabecera JSON
+// Configurar cabecera para respuestas JSON
 header('Content-Type: application/json; charset=utf-8');
 
-// ✅ Incluir conexión a la base de datos
+// Incluir archivo de conexión a la base de datos
 include_once './conexion.php';
 
-// ✅ Iniciar sesión
+// Iniciar sesión para verificar autenticación
 session_start();
 
-// ✅ Limpiar buffers previos solo si existen
-if (ob_get_length()) {
-    ob_clean();
-}
+// Limpiar buffer de salida para evitar contenido no deseado
+ob_clean();
 
-// ----------------------------------------------------------
-// 1️⃣ VALIDAR SESIÓN Y DATOS
-// ----------------------------------------------------------
+// Validar que el estudiante esté autenticado
 if (!isset($_SESSION['estudiante_id'])) {
-    echo json_encode([
-        'success' => false,
-        'mensaje' => 'Sesión no válida. Por favor, inicia sesión nuevamente.'
-    ]);
+    echo json_encode(['success' => false, 'mensaje' => 'No autenticado']);
     exit;
 }
 
-$id_estudiante = $_SESSION['estudiante_id'];
+// Recolectar y validar datos del formulario
+$id_curs_asig_es    = $_POST['id_curs_asig_es'] ?? '';      // ID del curso-asignatura-estudiante
+$fecha_falta_excu   = $_POST['fecha_falta_excu'] ?? '';     // Fecha de la falta
+$tipo_excu          = $_POST['tipo_excu'] ?? '';             // Tipo de excusa (1=Salud, 2=Laboral, 3=Otro)
+$otro_tipo_excu     = $_POST['otro_tipo_excu'] ?? '';       // Especificación si es tipo "Otro"
+$descripcion_excu   = $_POST['descripcion_excu'] ?? '';     // Descripción del motivo
+$num_doc_estudiante = $_SESSION['estudiante_id'];            // Número de documento del estudiante
 
-// Validar datos del formulario
-$curso = $_POST['curso'] ?? null;
-$fecha_falta = $_POST['fecha_falta'] ?? null;
-$descripcion = $_POST['descripcion'] ?? null;
-$tipo_excusa = $_POST['tipo_excusa'] ?? null;
-$otro_tipo = $_POST['otro_tipo'] ?? null;
-
-if (!$curso || !$fecha_falta || !$descripcion || !$tipo_excusa) {
-    echo json_encode([
-        'success' => false,
-        'mensaje' => 'Faltan campos obligatorios.'
-    ]);
+// Validaciones básicas de campos obligatorios
+if (empty($id_curs_asig_es) || empty($fecha_falta_excu) || empty($tipo_excu) || empty($descripcion_excu)) {
+    echo json_encode(['success' => false, 'mensaje' => 'Faltan datos obligatorios']);
     exit;
 }
 
-// ----------------------------------------------------------
-// 2️⃣ SUBIDA DE ARCHIVO A DROPBOX
-// ----------------------------------------------------------
+// Validar que se haya proporcionado un soporte (enlace a Dropbox)
+$soporte_excu = $_POST['soporte_excu'] ?? '';
+if (empty($soporte_excu)) {
+    echo json_encode(['success' => false, 'mensaje' => 'Soporte vacío']);
+    exit;
+}
+
 try {
-    if (isset($_FILES['soporte']) && $_FILES['soporte']['error'] === UPLOAD_ERR_OK) {
+    //Insertar la excusa en la base de datos
+    $fecha_radicado_excu = date('Y-m-d');  // Fecha actual como fecha de radicado
+    $estado_inicial = 3;                    // Estado inicial: 3 = Pendiente
 
-        $dropboxKeyFile = __DIR__ . '/../drp_app_info.json';
-        $appInfo = json_decode(file_get_contents($dropboxKeyFile), true);
+    // Consulta preparada para insertar la excusa
+    $stmt = $conn->prepare("
+        INSERT INTO excusas (
+            id_curs_asig_es,        -- ID del curso-asignatura-estudiante
+            fecha_falta_excu,       -- Fecha de la falta
+            fecha_radicado_excu,    -- Fecha de radicado (hoy)
+            soporte_excu,           -- Enlace al archivo de soporte
+            descripcion_excu,       -- Descripción del motivo
+            tipo_excu,              -- Tipo de excusa
+            otro_tipo_excu,         -- Especificación si es tipo Otro
+            estado_excu,            -- Estado inicial (Pendiente)
+            num_doc_estudiante      -- Número de documento del estudiante
+        ) VALUES (
+            :id_curs_asig_es,
+            :fecha_falta_excu,
+            :fecha_radicado_excu,
+            :soporte_excu,
+            :descripcion_excu,
+            :tipo_excu,
+            :otro_tipo_excu,
+            :estado_excu,
+            :num_doc_estudiante
+        )
+    ");
+    
+    // Ejecutar inserción con los datos de la excusa
+    $stmt->execute([
+        ':id_curs_asig_es'    => $id_curs_asig_es,
+        ':fecha_falta_excu'   => $fecha_falta_excu,
+        ':fecha_radicado_excu'=> $fecha_radicado_excu,
+        ':soporte_excu'       => $soporte_excu,
+        ':descripcion_excu'   => $descripcion_excu,
+        ':tipo_excu'          => $tipo_excu,
+        ':otro_tipo_excu'     => $otro_tipo_excu,
+        ':estado_excu'        => $estado_inicial,
+        ':num_doc_estudiante' => $num_doc_estudiante
+    ]);
 
-        $app = new Kunnu\Dropbox\DropboxApp(
-            $appInfo['dropboxKey'],
-            $appInfo['dropboxSecret'],
-            $appInfo['dropboxToken']
-        );
+    // Obtener el ID de la excusa recién insertada
+    $id_excusa = $conn->lastInsertId();
 
-        $dropbox = new Kunnu\Dropbox\Dropbox($app);
+    //Obtener datos para enviar correo de notificación al director de unidad
+    $sqlDatos = "
+        SELECT 
+            exc.fecha_falta_excu,           -- Fecha de la falta
+            tex.tipo_excu,                  -- Tipo de excusa
+            est.nombre_estudiante,          -- Nombre del estudiante
+            u.nombre_unidad,                -- Nombre de la unidad académica
+            e.nombre_empleado AS nombre_director,    -- Nombre del director
+            e.correo_empleado AS correo_director     -- Correo del director
+        FROM excusas AS exc
+        INNER JOIN estudiantes AS est 
+            ON exc.num_doc_estudiante = est.num_doc_estudiante
+        INNER JOIN unidades AS u
+            ON est.id_unidad = u.id_unidad
+        INNER JOIN empleados AS e
+            ON e.id_unidad = u.id_unidad
+           AND e.rol_empleado = 2          -- Rol 2 = Director de Unidad
+        INNER JOIN tiposexcusas AS tex 
+            ON exc.tipo_excu = tex.id_tipo_excu
+        WHERE exc.id_excusa = :id_excusa
+        LIMIT 1
+    ";
+    
+    $stmtDatos = $conn->prepare($sqlDatos);
+    $stmtDatos->execute([':id_excusa' => $id_excusa]);
+    $datos = $stmtDatos->fetch(PDO::FETCH_ASSOC);
 
-        $fileTempPath = $_FILES['soporte']['tmp_name'];
-        $fileName = basename($_FILES['soporte']['name']);
-        $dropboxPath = '/excusas/' . $fileName;
+    // Variables para control del envío de correo
+    $mail_sent = false;
+    $mail_error = '';
 
-        // Subir archivo
-        $uploadedFile = $dropbox->simpleUpload($fileTempPath, $dropboxPath, ['autorename' => true]);
+    //Enviar correo de notificación si se encontró información del director
+    if ($datos && !empty($datos['correo_director'])) {
+        // Incluir archivos necesarios de PHPMailer
+        require_once './Terceros/dropbox/PHPMailer-master/src/Exception.php';
+        require_once './Terceros/dropbox/PHPMailer-master/src/PHPMailer.php';
+        require_once './Terceros/dropbox/PHPMailer-master/src/SMTP.php';
 
-        // Crear enlace compartido
-        $sharedLink = $dropbox->postToAPI("/sharing/create_shared_link_with_settings", [
-            "path" => $uploadedFile->getPathDisplay()
-        ]);
+        try {
+            // Configurar PHPMailer
+            $mail = new PHPMailer(true);
+            $mail->isSMTP();                                    // Usar SMTP
+            $mail->Host = 'smtp.gmail.com';                     // Servidor SMTP de Gmail
+            $mail->SMTPAuth = true;                             // Habilitar autenticación SMTP
+            $mail->Username = 'stebanbusiness@gmail.com';       // Usuario SMTP
+            $mail->Password = 'jywt gyer gujh qsjl';            // Contraseña SMTP (App Password)
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Usar TLS
+            $mail->Port = 587;                                  // Puerto SMTP para TLS
 
-        $url = $sharedLink['url'];
-        $soporte_excu = str_replace("?dl=0", "?raw=1", $url);
+            // Configurar remitente y destinatario
+            $mail->setFrom('stebanbusiness@gmail.com', 'Sistema Excusas Cotecnova');
+            $mail->addAddress($datos['correo_director']);
 
+            // Configurar contenido del correo
+            $mail->isHTML(true);
+            $mail->Subject = 'Nueva excusa registrada - ' . $datos['nombre_unidad'];
+            $mail->Body = "
+                <p>Hola Director(a) {$datos['nombre_director']},</p>
+                <p>El estudiante <strong>{$datos['nombre_estudiante']}</strong> ha registrado una nueva excusa en la unidad <strong>{$datos['nombre_unidad']}</strong>.</p>
+                <p><strong>Fecha de la falta:</strong> {$datos['fecha_falta_excu']}</p>
+                <p><strong>Tipo de excusa:</strong> {$datos['tipo_excu']}</p>
+                <p>Por favor, ingrese al sistema para aprobar o rechazar esta solicitud.</p>
+            ";
+            
+            // Enviar correo
+            $mail->send();
+            $mail_sent = true;
+            
+        } catch (Exception $e) {
+            // Capturar y registrar error del envío de correo
+            $mail_error = $mail->ErrorInfo ?? $e->getMessage();
+            error_log("PHPMailer error: " . $mail_error);
+        }
     } else {
-        $soporte_excu = null;
+        // Registrar que no se encontró correo del director
+        error_log("No se encontró correo del director para la excusa id={$id_excusa}");
     }
 
-} catch (Exception $e) {
-    echo json_encode([
-        'success' => false,
-        'mensaje' => 'Error al subir el archivo a Dropbox: ' . $e->getMessage()
-    ]);
-    exit;
-}
-
-// ----------------------------------------------------------
-// 3️⃣ REGISTRAR EXCUSA EN BD
-// ----------------------------------------------------------
-try {
-    $sql = "INSERT INTO excusas 
-        (id_curs_asig_es, fecha_falta_excu, fecha_radicado_excu, soporte_excu, descripcion_excu, tipo_excu, otro_tipo_excu, estado_excu, num_doc_estudiante)
-        VALUES (:curso, :fecha_falta, NOW(), :soporte, :descripcion, :tipo, :otro, 1, :num_doc)";
-
-    $stmt = $conn->prepare($sql);
-    $stmt->bindParam(':curso', $curso);
-    $stmt->bindParam(':fecha_falta', $fecha_falta);
-    $stmt->bindParam(':soporte', $soporte_excu);
-    $stmt->bindParam(':descripcion', $descripcion);
-    $stmt->bindParam(':tipo', $tipo_excusa);
-    $stmt->bindParam(':otro', $otro_tipo);
-    $stmt->bindParam(':num_doc', $id_estudiante);
-
-    $stmt->execute();
-
-    // ------------------------------------------------------
-    // 4️⃣ NOTIFICAR POR CORREO AL DIRECTOR (opcional)
-    // ------------------------------------------------------
-    $mail = new PHPMailer(true);
-    try {
-        $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->SMTPAuth = true;
-        $mail->Username = 'tu_correo@gmail.com'; // 🔁 CAMBIAR
-        $mail->Password = 'tu_contraseña';        // 🔁 CAMBIAR o usar App Password
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
-
-        $mail->setFrom('tu_correo@gmail.com', 'Sistema de Excusas');
-        $mail->addAddress('director@tucolegio.edu'); // 🔁 CAMBIAR destinatario
-
-        $mail->isHTML(true);
-        $mail->Subject = 'Nueva excusa registrada';
-        $mail->Body = "
-            <h3>Excusa registrada por estudiante</h3>
-            <p><b>Descripción:</b> {$descripcion}</p>
-            <p><b>Fecha de falta:</b> {$fecha_falta}</p>
-            <p><b>Curso:</b> {$curso}</p>
-        ";
-
-        $mail->send();
-    } catch (Exception $e) {
-        // No se detiene el flujo si falla el envío
+    // PASO 4: Preparar respuesta final
+    if ($mail_sent) {
+        // Excusa registrada y correo enviado exitosamente
+        echo json_encode(['success' => true, 'mensaje' => 'Excusa registrada correctamente.']);
+    } else {
+        // Excusa registrada pero hubo problema con el correo
+        $msg = 'Excusa registrada correctamente.';
+        if (!empty($mail_error)) {
+            $msg .= ' Pero hubo un error al enviar correo: ' . $mail_error;
+        } else {
+            $msg .= ' No se envió correo (no se encontró correo del director).';
+        }
+        echo json_encode(['success' => true, 'mensaje' => $msg]);
     }
-
-    echo json_encode([
-        'success' => true,
-        'mensaje' => 'Excusa registrada correctamente.'
-    ]);
-    exit;
-
+    
 } catch (PDOException $e) {
-    echo json_encode([
-        'success' => false,
-        'mensaje' => 'Error al registrar la excusa: ' . $e->getMessage()
-    ]);
-    exit;
+    // Error en la base de datos
+    echo json_encode(['success' => false, 'mensaje' => 'Error al registrar la excusa: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    // Error general inesperado
+    echo json_encode(['success' => false, 'mensaje' => 'Error inesperado: ' . $e->getMessage()]);
 }

@@ -12,7 +12,7 @@
 $host = 'db';        // Servidor de base de datos (local)
 $dbname = 'v_exc_asig_mat_est';  // Nombre de la base de datos
 $username = 'root';         // Usuario de la base de datos
-$password = 'root_pass';             // Contraseña de la base de datos (vacía para desarrollo local)
+$password = 'root_pass';             // Contraseña de la base de datos 
 
 try {
     // Crear nueva instancia de PDO con configuración de conexión

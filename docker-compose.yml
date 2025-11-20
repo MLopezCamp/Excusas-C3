@@ -10,7 +10,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8090:80"  # Jenkins usa 8080
+      - "8090:80" 
     environment:
       DB_HOST: db
       DB_PORT: 3306
