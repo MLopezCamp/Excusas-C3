@@ -14,7 +14,6 @@
 // Importar clases de PHPMailer para envío de correos
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-require_once __DIR__ . "/../config/Database.php";
 
 // Configuración de reporte de errores para desarrollo
 ini_set('display_errors', 1);
@@ -31,7 +30,9 @@ include_once './conexion.php';
 session_start();
 
 // Limpiar buffer de salida para evitar contenido no deseado
-ob_clean();
+if (ob_get_level()) {
+    ob_clean();
+}
 
 // Validar que el estudiante esté autenticado
 if (!isset($_SESSION['estudiante_id'])) {
