@@ -18,7 +18,7 @@ El Sistema de Gestión de Excusas de COTECNOVA es un módulo web desarrollado en
 - Orquestación: Docker Compose
 
 ## Estructura de Directorios
-
+´´´
 ExcusasC3/
 ├── Dockerfile
 ├── docker-compose.yml
@@ -39,6 +39,8 @@ ExcusasC3/
 └── Modules/
     ├── Estudiantes/
     └── ExcusasCotecnova/
+   
+´´´
 
 ## Despliegue con Docker
 
