@@ -1,358 +1,175 @@
-# Sistema de Gestión de Excusas - COTECNOVA
+# Sistema de Gestión de Excusas – COTECNOVA
 
 ## Descripción General
 
-El **Sistema de Gestión de Excusas de COTECNOVA** es un modulo web desarrollada en PHP que permite a estudiantes registrar excusas por inasistencias y a docentes/directores de unidad gestionar y validar estas solicitudes. El sistema implementa un flujo de trabajo completo desde el registro hasta la aprobación/rechazo de excusas.
+El Sistema de Gestión de Excusas de COTECNOVA es un módulo web desarrollado en PHP que permite a estudiantes registrar excusas por inasistencias y a docentes/directores de unidad gestionar y validar estas solicitudes. El sistema implementa un flujo completo desde el registro de la excusa hasta su aprobación o rechazo.
 
 ## Arquitectura del Sistema
 
 ### Tecnologías Utilizadas
 
-- **Backend**: PHP 7.4+
-- **Base de Datos**: MySQL
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
-- **Framework CSS**: Bootstrap 5.3.2
-- **Almacenamiento de Archivos**: Dropbox API (Kunnalvarma)
-- **Envío de Correos**: PHPMailer
-- **Autenticación**: Sistema de sesiones PHP
+- Backend: PHP 7.4+
+- Base de Datos: MySQL 8
+- Frontend: HTML5, CSS3, JavaScript (ES6+)
+- Framework CSS: Bootstrap 5.3.2
+- Almacenamiento de Archivos: Dropbox API (Kunnalvarma)
+- Correo: PHPMailer
+- Autenticación: Sesiones PHP
+- Orquestación: Docker Compose
 
-### Estructura de Directorios
+## Estructura de Directorios
 
-```
-Excusas-2/
-├── CSS/                         # Hojas de estilos
-│   ├── estudiante/              # Estilos para módulo de estudiantes
-│   └── ExcusasCotecnova/        # Estilos para módulo de docentes
-├── Images/                      # Imágenes e iconos del sistema
-├── Modules/                     # Módulos principales
-│   ├── Estudiantes/             # Módulo de estudiantes
-│   └── ExcusasCotecnova/        # Módulo de gestión de excusas
-├── php/                         # APIs y lógica de backend
-    ├── PHPMailer/               # Librería para envío de correos
-    └── Terceros/                # Dependencias externas (Dropbox)
-```
+ExcusasC3/
+├── Dockerfile
+├── docker-compose.yml
+├── v_exc_asig_mat_est.sql
+├── php/
+│   ├── registrar_excusa_estudiante.php
+│   ├── registrar_excusa_docente.php
+│   ├── actualizar_estado_excusa.php
+│   ├── uploadFiles.php
+│   ├── login_estudiante_api.php
+│   ├── login_docente_api.php
+│   └── Terceros/
+│       └── Dropbox SDK
+├── CSS/
+│   ├── estudiante/
+│   └── ExcusasCotecnova/
+├── Images/
+└── Modules/
+    ├── Estudiantes/
+    └── ExcusasCotecnova/
 
-## Funcionalidades del Sistema
+## Despliegue con Docker
 
-### 1. Módulo de Estudiantes
+### Servicios definidos en docker-compose.yml
 
-#### Autenticación
-- Login con número de documento y contraseña
-- Validación de credenciales contra base de datos
-- Creación de sesión segura
+1. Web (PHP + Apache)
+- Construido desde Dockerfile
+- Puerto expuesto: 8090
+- Código montado en /var/www/html
+- Conexión directa al servicio de base de datos
 
-#### Panel Principal
-- Dashboard con información académica del estudiante
-- Menú de navegación lateral con acceso a diferentes módulos:
-  - Notas y Acuerdos de Clase
-  - Horario
-  - Programa Académico
-  - **Registro de Excusas** (funcionalidad principal)
-  - Encuestas de Apreciación
-  - Tabulados
-  - Recibos de Pago
-  - Sistema SQR
+2. Base de Datos (MySQL 8)
+- Puerto 3306 (interno)
+- Usuario/contraseña: root / root_pass
+- Inicialización automática desde v_exc_asig_mat_est.sql
+- Volumen persistente: db_data
 
-#### Registro de Excusas
-- **Selección de Materias**: Lista de cursos matriculados con checkboxes
-- **Formulario de Excusa**:
+3. phpMyAdmin
+URL: http://localhost:8091
+Credenciales: root / root_pass
+
+## Cómo levantar el proyecto
+
+Ejecutar desde la raíz del proyecto:
+
+docker-compose up -d --build
+
+Servicios disponibles:
+- Aplicación Web: http://localhost:8090
+- phpMyAdmin: http://localhost:8091
+- Base de datos: db:3306 (solo interno)
+
+## Credenciales de Ejemplo
+
+MySQL / phpMyAdmin:
+- Usuario: root
+- Contraseña: root_pass
+- Base de datos: v_exc_asig_mat_est
+
+## Funcionamiento del Sistema
+
+### Módulo Estudiantes
+- Inicio de sesión
+- Visualización de cursos inscritos
+- Registro de excusas con:
+  - Selección de curso
+  - Tipo de excusa
+  - Motivo
   - Fecha de la falta
-  - Tipo de excusa (Salud, Laboral, Otro)
-  - Campo adicional para especificar tipo "Otro"
-  - Motivo detallado de la excusa
-  - Adjuntar archivo de soporte (PDF, ZIP, JPG, PNG)
-- **Validaciones**:
-  - Máximo 5 días hábiles de antigüedad
-  - Tamaño máximo de archivo: 10MB
-  - Tipos de archivo permitidos
-  - Campos obligatorios
-- **Proceso de Envío**:
-  1. Subida de archivo a Dropbox
-  2. Generación de enlace compartido
-  3. Registro en base de datos
-  4. Envío de notificación por correo al director de unidad
+  - Subida de archivo a Dropbox
+- Notificación por correo al director de unidad
 
-### 2. Módulo de Docentes y Administrativos
-
-#### Autenticación
-- Login con número de documento y contraseña
-- Verificación de rol y permisos
-- Control de acceso basado en roles (RBAC)
-
-#### Panel Principal
-- Dashboard adaptativo según el rol del usuario
-- Tarjetas de funcionalidades:
-  - Horario
-  - Funciones Administrativas
-  - Asesorías
-  - Autoevaluación
-  - Reloj y fecha actual
-  - **Registro de Excusas** (solo para roles autorizados)
-
-#### Gestión de Cursos
-- Tabla de cursos asignados al docente
-- Información detallada: nombre, horario, aula, número de estudiantes
-- Menú desplegable de opciones por curso
-- Acceso directo al módulo de excusas
-
-#### Gestión de Excusas
-
-##### Para Directivos y Directores de Unidad:
-- **Registro de Excusas para Estudiantes**:
-  - Ingreso de cédula del estudiante
-  - Carga dinámica de cursos del estudiante
-  - Formulario completo de excusa
-  - Subida de archivos de soporte
-
-##### Para Directores de Unidad:
-- **Validación y Aprobación de Excusas**:
-  - Lista de excusas pendientes de validación
-  - Filtrado por curso
-  - Opciones de aprobación/rechazo
-  - Campo para justificación
-  - Actualización de estado en tiempo real
-
-## Flujo de Trabajo del Sistema
-
-### 1. Registro de Excusa por Estudiante
-```
-Estudiante → Login → Panel Principal → Registro de Excusas → 
-Seleccionar Materias → Llenar Formulario → Subir Archivo → 
-Enviar Excusa → Notificación por Correo
-```
-
-### 2. Validación por Director de Unidad
-```
-Director → Login → Panel Principal → Gestión de Excusas → 
-Ver Excusas Pendientes → Revisar Soporte → 
-Aprobar/Rechazar → Justificar Decisión → 
-Actualizar Estado → Notificar Estudiante
-```
-
-### 3. Estados de las Excusas
-- **Estado 1**: Aprobada
-- **Estado 2**: Rechazada  
-- **Estado 3**: Pendiente (estado inicial)
+### Módulo Docentes y Administrativos
+- Gestión de cursos asignados
+- Registro de excusas para estudiantes
+- Validación de excusas
+- Aprobación/rechazo con comentarios
 
 ## Base de Datos
 
-### Tablas Principales
+Tablas principales:
+- estudiantes
+- empleados
+- excusas
+- t_v_exc_asig_mat_est
+- tiposexcusas
+- unidades
 
-#### `estudiantes`
-- Información personal y académica de los estudiantes
-- Credenciales de acceso al sistema
+Relaciones clave:
+- Excusa ↔ Estudiante ↔ Curso ↔ Estado
+- Estudiante ↔ Unidad ↔ Director de Unidad
+- Docente ↔ Cursos asignados
 
-#### `empleados`
-- Información de docentes y personal administrativo
-- Roles y permisos del sistema
+## Seguridad
 
-#### `excusas`
-- Registro central de todas las excusas
-- Relación con estudiantes, cursos y estados
+- Validación estricta de sesiones por rol
+- Validación de archivos
+- Consultas PDO preparadas
+- Manejo seguro de tokens de Dropbox
 
-#### `t_v_exc_asig_mat_est`
-- Vista que relaciona excusas, asignaturas, matrículas y estudiantes
-- Información de cursos y docentes asignados
+## APIs Disponibles
 
-#### `tiposexcusas`
-- Catálogo de tipos de excusa disponibles
-- Descripciones y categorías
+Archivo                          | Descripción
+--------------------------------|------------------------------------------
+login_estudiante_api.php       | Autenticación estudiantes
+login_docente_api.php          | Autenticación docentes/administrativos
+registrar_excusa_estudiante.php | Registro de excusas por estudiante
+registrar_excusa_docente.php    | Registro por administrativos
+actualizar_estado_excusa.php    | Aprobación o rechazo
+uploadFiles.php                 | Subida de archivos a Dropbox
+obtener_cursos_estudiantes.php  | Cursos del estudiante
+obtener_cursos_docentes.php     | Cursos del docente
 
-#### `unidades`
-- Unidades académicas de la institución
-- Relación con directores de unidad
+## Mantenimiento en Docker
 
-### Relaciones Clave
-- Estudiante → Unidad → Director de Unidad
-- Estudiante → Cursos Matriculados → Docentes
-- Excusa → Estudiante → Curso → Estado
+Ver logs aplicación web:
+docker logs excusas_web
 
-## APIs del Sistema
+Ver logs BD:
+docker logs excusas_db
 
-### 1. Autenticación
-- **`login_estudiante_api.php`**: Login de estudiantes
-- **`login_docente_api.php`**: Login de docentes y administrativos
+Reiniciar todo:
+docker-compose down
+docker-compose up -d --build
 
-### 2. Gestión de Excusas
-- **`registrar_excusa_estudiante.php`**: Registro de excusas por estudiantes
-- **`registrar_excusa_docente.php`**: Registro de excusas por docentes
-- **`actualizar_estado_excusa.php`**: Aprobación/rechazo de excusas
+Acceder a MySQL dentro del contenedor:
+docker exec -it excusas_db mysql -u root -p
 
-### 3. Gestión de Archivos
-- **`uploadFiles.php`**: Subida de archivos a Dropbox
+## Backups
 
-### 4. Consultas
-- **`obtener_cursos_estudiantes.php`**: Cursos de un estudiante específico
-- **`obtener_cursos_docentes.php`**: Cursos asignados a un docente
+Generar backup:
+docker exec excusas_db mysqldump -u root -proot_pass v_exc_asig_mat_est > backup.sql
 
-## Seguridad del Sistema
+Restaurar backup:
+docker exec -i excusas_db mysql -u root -proot_pass v_exc_asig_mat_est < backup.sql
 
-### Autenticación
-- Sistema de sesiones PHP
-- Verificación de credenciales contra base de datos
-- Protección contra acceso no autorizado
+## Problemas Comunes
 
-### Control de Acceso
-- Control de acceso basado en roles
-- Verificación de permisos por funcionalidad
-- Redirección automática para usuarios no autenticados
+1. PHP no encuentra archivos montados  
+   Solución: verificar volumen:
+   - .:/var/www/html
 
-### Validación de Datos
-- Consultas preparadas para prevenir inyección SQL
-- Validación de tipos de archivo
-- Límites de tamaño de archivo
-- Sanitización de entrada de usuario
+2. Error “Database connection failed”
+   Verificar que $DB_HOST dentro del contenedor web sea: db
 
-### Almacenamiento Seguro
-- Archivos almacenados en Dropbox (no en servidor local)
-- Enlaces compartidos con acceso controlado
-- Credenciales de API almacenadas de forma segura
+3. phpMyAdmin no conecta
+   Verificar variables:
+   PMA_HOST=db  
+   PMA_USER=root  
+   PMA_PASSWORD=root_pass
 
-## Configuración del Sistema
+## Derechos
 
-### Requisitos del Servidor
-- Laragon v8.2.3 o superior
-- PHP 7.4 o superior
-- MySQL 5.7 o superior
-- Extensiones PHP: PDO, PDO_MySQL, cURL
-- Memoria mínima: 128MB
-- Espacio en disco: 1GB mínimo
-
-## Instalación y Despliegue
-
-### 1. Preparación del Entorno
-```bash
-# Clonar repositorio
-git clone [URL_DEL_REPOSITORIO]
-cd Excusas-2
-```
-
-### 2. Configuración de Base de Datos
-```sql
--- Crear base de datos
-CREATE DATABASE v_exc_asig_mat_est;
-
--- Importar estructura y datos
-mysql -u root -p v_exc_asig_mat_est < database_schema.sql
-```
-
-### 3. Configuración de Archivos
-- Configurar credenciales de base de datos
-- Configurar credenciales de Dropbox
-- Configurar credenciales de correo
-
-### 5. Configuración del Servidor Web
-- Configurar virtual host para el proyecto
-- Habilitar mod_rewrite si se usan URLs amigables
-- Configurar límites de subida de archivos en PHP
-
-## Mantenimiento y Operación
-
-### Logs del Sistema
-- Errores de PHP en `error_log`
-- Errores de PHPMailer en logs del sistema
-- Errores de base de datos en logs de MySQL
-
-### Respaldos
-- Respaldar base de datos regularmente
-- Respaldar archivos de configuración
-- Respaldar archivos subidos a Dropbox
-
-### Monitoreo
-- Verificar funcionamiento de APIs
-- Monitorear uso de almacenamiento en Dropbox
-- Revisar logs de errores regularmente
-
-### Actualizaciones
-- Mantener PHP y MySQL actualizados
-- Actualizar dependencias de Composer
-- Revisar actualizaciones de seguridad
-
-## Características Técnicas
-
-### Rendimiento
-- Consultas SQL optimizadas con índices apropiados
-- Paginación de resultados para listas grandes
-- Caché de consultas frecuentes
-- Compresión de archivos CSS y JavaScript
-
-### Escalabilidad
-- Arquitectura modular para fácil expansión
-- Separación clara de responsabilidades
-- APIs RESTful para integración futura
-- Base de datos normalizada
-
-### Compatibilidad
-- Navegadores modernos (Chrome, Firefox, Safari, Edge)
-- Diseño responsivo para dispositivos móviles
-- Soporte para diferentes resoluciones de pantalla
-- Compatibilidad con estándares web
-
-## Casos de Uso
-
-### Estudiante
-1. **Acceso al Sistema**: Login con credenciales institucionales
-2. **Consulta Académica**: Acceso a notas, horarios y programas
-3. **Registro de Excusa**: Proceso completo de solicitud de excusa
-4. **Seguimiento**: Consulta del estado de excusas enviadas
-
-### Docente
-1. **Gestión de Cursos**: Visualización de cursos asignados
-2. **Acceso a Información**: Listados de estudiantes y notas
-3. **Registro de Excusas**: Crear excusas para estudiantes cuando sea necesario
-
-### Director de Unidad
-1. **Validación de Excusas**: Revisar y aprobar/rechazar solicitudes
-2. **Gestión Académica**: Supervisar excusas de la unidad
-3. **Reportes**: Generar informes de excusas por curso
-
-### Administrador del Sistema
-1. **Gestión de Usuarios**: Crear y administrar cuentas
-2. **Configuración**: Ajustar parámetros del sistema
-3. **Mantenimiento**: Respaldo y actualización del sistema
-
-## Solución de Problemas
-
-### Problemas Comunes
-
-#### Error de Conexión a Base de Datos
-- Verificar credenciales en `conexion.php`
-- Confirmar que MySQL esté ejecutándose
-- Verificar permisos de usuario de base de datos
-
-#### Error en Subida de Archivos
-- Verificar configuración de Dropbox
-- Confirmar límites de tamaño en PHP
-- Revisar permisos de escritura
-
-#### Error en Envío de Correos
-- Verificar credenciales SMTP
-- Confirmar configuración de PHPMailer
-- Revisar logs de error del servidor
-
-#### Problemas de Sesión
-- Verificar configuración de cookies
-- Confirmar que las sesiones estén habilitadas
-- Revisar configuración del servidor web
-
-### Debugging
-- Habilitar `display_errors` en desarrollo
-- Revisar logs de error del servidor
-- Usar herramientas de desarrollo del navegador
-- Verificar consola de JavaScript
-
-## Licencia y Derechos
-
-Este sistema fue desarrollado para la **Corporación de Estudios Tecnológicos del Norte del Valle (COTECNOVA)**. Todos los derechos reservados.
-
-## Contacto y Soporte
-
-Para soporte técnico o consultas sobre el sistema:
-- **Desarrollador**: Equipo de Desarrollo COTECNOVA
-- **Contacto**: [Oficina de TI]
-
----
-
-**Versión del Sistema**: 2.0  
-**Última Actualización**: Diciembre 2024  
-**Estado**: En Producción
+Desarrollado para la Corporación de Estudios Tecnológicos del Norte del Valle (COTECNOVA).
